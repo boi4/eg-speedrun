@@ -5,6 +5,7 @@ import os
 import os.path
 import sys
 import time
+from datetime import datetime
 from pprint import pprint
 
 import folium
@@ -68,6 +69,7 @@ Plot graphs in English Garden of past tracks.
     parser.add_argument("--outdir", "-o", default=DEFAULT_PLOTS_DIR, help="The directory where the plots are produced in.")
     parser.add_argument("--cachefile", "-c", default=None, help="Path to a file where map matching results are cached. File will be created if it does not exist yet")
     parser.add_argument("--debug", default=False, action="store_true", help="The directory where the plots are produced in.")
+    parser.add_argument("--filter-date", default=0, type=int, help="Optional UNIX timestamp. Consider only gps tracks recorded later or equal of that timestamp")
 
     return parser
 
@@ -91,7 +93,7 @@ def setup(args):
         GPSTrack.set_cachefile(args.cachefile)
 
 
-def load_relevant_tracks(gpxdir):
+def load_relevant_tracks(gpxdir, filter_date):
     gpxfiles = [os.path.join(gpxdir, f) for f in os.listdir(gpxdir) if f.endswith(".gpx")]
 
     print(f"Found {len(gpxfiles)} gpxfiles")
@@ -106,6 +108,9 @@ def load_relevant_tracks(gpxdir):
         if len(track.points) == 0:
             print(f"Track {track.filepath} - '{track.name}' has no points, ignoring")
             continue
+
+        if track.date < filter_date:
+            print(f"Track {track.filepath} - '{track.name}' earlier than {filter_date}, ignoring")
 
         tracks.append(track)
 
@@ -192,7 +197,7 @@ def main():
 
 
     # load tracks
-    tracks = load_relevant_tracks(args.gpxdir)
+    tracks = load_relevant_tracks(args.gpxdir, datetime.fromtimestamp(args.filter_date))
 
 
     # load our graph
