@@ -10,6 +10,7 @@ import folium
 import folium.plugins
 import matplotlib.pyplot as plt
 import osmnx as ox
+from tqdm import tqdm
 
 from gpstrack import GPSTrack,myHash
 
@@ -87,7 +88,9 @@ def load_relevant_tracks(gpxdir):
     gpxfiles = [os.path.join(gpxdir, f) for f in os.listdir(gpxdir) if f.endswith(".gpx")]
 
     print(f"Found {len(gpxfiles)} gpxfiles")
-    tracks_tocheck = [GPSTrack.from_gpx(f) for f in gpxfiles]
+    print(f"Parsing gpx files...")
+    tracks_tocheck = [GPSTrack.from_gpx(f) for f in tqdm(gpxfiles)]
+    print(f"Parsing done.")
 
 
     # filter tracks
@@ -194,19 +197,24 @@ def main():
 
     # save whole graph as interactive html for debugging
     if args.debug:
+        print("Doing debug plots...")
         plot_html_debug(G, f"{outdir}/english_garden_infos.html")
+        print(f"Edge info plot done: {outdir}/english_garden_infos.html")
         plot_html_by_highway(G, f"{outdir}/english_garden_highway.html")
+        print(f"Highway type info plot done: {outdir}/english_garden_highway.html")
 
 
     # match tracks with edges
+    print("Matching gps points to edges...")
     matched_tracks = []
-    for track in tracks:
+    for track in tqdm(tracks):
         route = track.match_graph(G)
 
         if len(route) == 0:
             print(f"Track {track.filepath} - '{track.name}' not in English Garden, ignoring")
         else:
             matched_tracks.append((track, route))
+    print("Matching done.")
 
 
 
@@ -227,6 +235,7 @@ def main():
 
     # m will be the folium.Map object for html visualization
     # plot to-run edges in gray
+    print("Plotting interactive html plot of tracks...")
     m = ox.plot_graph_folium(G_to_run,
                              tiles="CartoDB positron",
                              fit_bounds=True,
@@ -239,7 +248,7 @@ def main():
 
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
-    for (i,t) in enumerate(matched_tracks):
+    for (i,t) in enumerate(tqdm(matched_tracks)):
         track,route = t
 
         # determine next color
@@ -269,6 +278,7 @@ def main():
 
     # save folium html map
     m.save(f"{outdir}/map.html")
+    print("Plotting done.")
 
     # folium.plugins.Fullscreen(
     #     position="topright",
@@ -280,6 +290,7 @@ def main():
 
 
     if args.debug:
+        print("Plotting debug visualization with gps points included")
         # visualize gps points and matched points
         for (i,t) in enumerate(matched_tracks):
             track,route = t
@@ -295,8 +306,10 @@ def main():
                 c.add_to(m)
 
         m.save(f"{outdir}/map-debug.html")
+        print(f"Debug plotting done: {outdir}/map-debug.html")
 
 
+    print("Creating static plot")
     # create and save static plot
     fig,ax = plt.subplots(facecolor=BGCOLOR)
     ax.set_facecolor(BGCOLOR)
@@ -308,6 +321,8 @@ def main():
                   show=False
                   )
     save_plot(fig, "map", outdir)
+    save_plot(fig, "map", outdir, extension="png")
+    print("Static plot done")
 
 
 
@@ -344,9 +359,10 @@ def main():
         "runned_percentage": runned_percentage,
         "to_run_percentage": to_run_percentage,
     }
-    print("Statistic:")
+    print("\n\n\nStatistics:")
     print("=========================================")
     pprint(stats)
+    print("\n\n")
 
     # dump to file
     json.dump(stats, open(f"{outdir}/stats.json", "w"))

@@ -174,7 +174,7 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
             for index,_ in filtered.iterrows():
                 matched_graph_edges.append(index)
 
-        print(f"Matched {matchcount/len(matched_edges) * 100}% of edges")
+        # print(f"Matched {matchcount/len(matched_edges) * 100}% of edges")
         return matched_graph_edges
 
 
