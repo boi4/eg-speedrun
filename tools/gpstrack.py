@@ -106,7 +106,7 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
 
 
 
-    def match_graph(self, G):
+    def match_graph(self, G, valhalla_url=None):
         """match route against edges in G using valhalla APIII
 
         :param G: graph to match against
@@ -115,7 +115,10 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
 
         # Query API
 
-        baseurl = os.environ.get("VALHALLA_URL")
+        if valhalla_url is not None:
+            baseurl = valhalla_url
+        else:
+            baseurl = os.environ.get("VALHALLA_URL")
         url = f"{baseurl}/trace_attributes"
         # shape = [{"lat": p[0], "lon": p[1], "type": "via"} for p in self.points]
         # shape[0]["type"] = "break"

@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import os.path
+import sys
 import time
 from pprint import pprint
 
@@ -61,6 +62,7 @@ def create_parser():
 Plot graphs in English Garden of past tracks.
 """.strip())
 
+    parser.add_argument("--valhalla", default=None, required=False, help="URL to basis of valhalla api endpoint, can also be defined by setting VALHALLA_URL env. var")
     parser.add_argument("--gpxdir", "-d", required=True, help="The directory containing the gpx files for your runs.")
     parser.add_argument("--outdir", "-o", default=DEFAULT_PLOTS_DIR, help="The directory where the plots are produced in.")
     parser.add_argument("--cachefile", "-c", default=None, help="Path to a file where map matching results are cached. File will be created if it does not exist yet")
@@ -71,6 +73,10 @@ Plot graphs in English Garden of past tracks.
 def setup(args):
     # caching is done by this program itself
     ox.config(use_cache=False)
+
+    if args.valhalla is None and "VALHALLA_URL" not in os.environ:
+        print("--valhalla flag or VALLHALLA_URL environment variable have to be set")
+        sys.exit(1)
 
     # fetch graph
     if not os.path.isfile(FNAME):
@@ -208,7 +214,7 @@ def main():
     print("Matching gps points to edges...")
     matched_tracks = []
     for track in tqdm(tracks):
-        route = track.match_graph(G)
+        route = track.match_graph(G, args.valhalla)
 
         if len(route) == 0:
             print(f"Track {track.filepath} - '{track.name}' not in English Garden, ignoring")
