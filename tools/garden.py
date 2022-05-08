@@ -48,8 +48,9 @@ BGCOLOR = "#333333"
 
 
 
-def save_plot(fig, plotname, plotsdir, extension="pdf"):
-    fig.savefig(f"{plotsdir}/{plotname}.{extension}", format=extension, bbox_inches="tight")
+def save_plot(fig, plotname, plotsdir, extension="pdf", **kwargs):
+    fig.savefig(f"{plotsdir}/{plotname}.{extension}", format=extension,
+                bbox_inches="tight", **kwargs)
 
 
 
@@ -327,7 +328,7 @@ def main():
                   show=False
                   )
     save_plot(fig, "map", outdir)
-    save_plot(fig, "map", outdir, extension="png")
+    save_plot(fig, "map", outdir, extension="png", dpi=800)
     print("Static plot done")
 
 
@@ -368,10 +369,11 @@ def main():
     print("\n\n\nStatistics:")
     print("=========================================")
     pprint(stats)
-    print("\n\n")
+    print("")
 
     # dump to file
     json.dump(stats, open(f"{outdir}/stats.json", "w"))
+    print(f"Dumped statistics to {outdir}/stats.json")
 
     return locals()
 
