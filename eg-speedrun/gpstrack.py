@@ -10,10 +10,10 @@ import requests
 from shapely.geometry import Point
 
 
-def myHash(text):
-  h=0
-  [(h := ((h*281^ord(ch)*997)&0xffffffff)) for ch in text]
-  return str(h)
+def my_hash(text):
+    h=0
+    [(h := ((h*281^ord(ch)*997)&0xffffffff)) for ch in text]
+    return str(h)
 
 
 class GPSTrack:
@@ -138,12 +138,16 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
         if GPSTrack.request_cache is None:
             GPSTrack.request_cache = {}
 
-        request_hash = myHash(json.dumps(d))
+        request_hash = my_hash(json.dumps(d))
         if request_hash not in GPSTrack.request_cache:
             print("Sending request to Valhalla for map matchine")
             r = requests.post(url, data=json.dumps(d), headers=headers)
             if r.status_code != 200:
-                breakpoint()
+                print(self.name)
+                print("Unexpected valhalla http return value")
+                print(r.text)
+                return None
+
             GPSTrack.request_cache[request_hash] = r.text
             GPSTrack.flush_cachefile()
 

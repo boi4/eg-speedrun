@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import osmnx as ox
 from tqdm import tqdm
 
-from gpstrack import GPSTrack,myHash
+from gpstrack import GPSTrack,my_hash
 
 DEFAULT_PLOTS_DIR = "plots"
 PLACES = ["Englischer Garten", "Isarinsel Oberföhring", "Wehranlage Oberföhring"]
@@ -41,7 +41,7 @@ custom_filter = f'[highway~"^({"|".join(list(HIGHWAY_WHITELIST))})$"]'
 place_str = "@".join(PLACES + [custom_filter])
 
 # we use this file for caching the map data
-FNAME = f"data/{myHash(place_str)}.graphml"
+FNAME = f"data/{my_hash(place_str)}.graphml"
 
 TO_RUN_COLOR = "#d0d0d0"
 BGCOLOR = "#333333"
@@ -70,6 +70,7 @@ Plot graphs in English Garden of past tracks.
     parser.add_argument("--cachefile", "-c", default=None, help="Path to a file where map matching results are cached. File will be created if it does not exist yet")
     parser.add_argument("--debug", default=False, action="store_true", help="The directory where the plots are produced in.")
     parser.add_argument("--filter-date", default=0, type=int, help="Optional UNIX timestamp. Consider only gps tracks recorded later or equal of that timestamp")
+    parser.add_argument("--filter-name", default=None, help="Consider only gpx files with that name.")
 
     return parser
 
@@ -93,7 +94,7 @@ def setup(args):
         GPSTrack.set_cachefile(args.cachefile)
 
 
-def load_relevant_tracks(gpxdir, filter_date):
+def load_relevant_tracks(gpxdir, filter_date, filter_name=None):
     gpxfiles = [os.path.join(gpxdir, f) for f in os.listdir(gpxdir) if f.endswith(".gpx")]
 
     print(f"Found {len(gpxfiles)} gpxfiles")
@@ -105,16 +106,22 @@ def load_relevant_tracks(gpxdir, filter_date):
     # filter tracks
     tracks = []
     for track in tracks_tocheck:
+        if filter_name is not None and track.name != filter_name:
+            print(f"Track {track.filepath} - '{track.name}' is not called '{filter_name}', ignoring")
+            continue
+
         if len(track.points) == 0:
             print(f"Track {track.filepath} - '{track.name}' has no points, ignoring")
             continue
 
         if track.date < filter_date:
             print(f"Track {track.filepath} - '{track.name}' earlier than {filter_date}, ignoring")
+            continue
 
         tracks.append(track)
 
     return tracks
+
 
 def plot_html_by_highway(G, fname):
     gdf_edges = ox.graph_to_gdfs(G, nodes=False)
@@ -197,7 +204,9 @@ def main():
 
 
     # load tracks
-    tracks = load_relevant_tracks(args.gpxdir, datetime.fromtimestamp(args.filter_date))
+    tracks = load_relevant_tracks(args.gpxdir,
+                                  datetime.fromtimestamp(args.filter_date),
+                                  args.filter_name)
 
 
     # load our graph
@@ -218,7 +227,9 @@ def main():
     for track in tqdm(tracks):
         route = track.match_graph(G, args.valhalla)
 
-        if len(route) == 0:
+        if route is None:
+            print(f"Track {track.filepath} - '{track.name}' map matching failed")
+        elif len(route) == 0:
             print(f"Track {track.filepath} - '{track.name}' not in English Garden, ignoring")
         else:
             matched_tracks.append((track, route))
