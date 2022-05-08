@@ -161,6 +161,10 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
         edges = res["edges"]
         edges_is = [p["edge_index"] for p in mp]
 
+        if any(ei >= len(edges) for ei in edges_is):
+            print("Warning: Encountered edge indizes higher than number of edges?!!")
+            edges_is = [ei for ei in edges_is if ei < len(edges)]
+
         matched_edges = [edges[ei] for ei in edges_is]
 
         gdf_edges = ox.graph_to_gdfs(G, nodes=False)
