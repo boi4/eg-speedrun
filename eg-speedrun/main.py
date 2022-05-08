@@ -359,6 +359,8 @@ def main():
     runned_percentage = 100 * runned_length_meters / total_length_meters
     to_run_percentage = 100 * to_run_length_meters / total_length_meters
 
+    number_of_runs = len(matched_tracks)
+
     stats = {
         "total_length_meters": total_length_meters,
         "runned_length_meters": runned_length_meters,
@@ -366,6 +368,8 @@ def main():
 
         "runned_percentage": runned_percentage,
         "to_run_percentage": to_run_percentage,
+
+        "number_of_runs": number_of_runs,
     }
     print("\n\n\nStatistics:")
     print("=========================================")
