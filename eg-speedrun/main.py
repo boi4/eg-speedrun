@@ -107,10 +107,6 @@ def load_relevant_tracks(gpxdir):
             print(f"Track {track.filepath} - '{track.name}' has no points, ignoring")
             continue
 
-        if track.name != "München Laufen":
-            print(f"Track {track.filepath} - '{track.name}' not in Munich, ignoring")
-            continue
-
         tracks.append(track)
 
     return tracks
@@ -204,11 +200,11 @@ def main():
 
     # save whole graph as interactive html for debugging
     if args.debug:
-        print("Doing debug plots...")
+        print("Generating debug maps...")
         plot_html_debug(G, f"{outdir}/english_garden_infos.html")
-        print(f"Edge info plot done: {outdir}/english_garden_infos.html")
+        print(f"Edge info html map done: {outdir}/english_garden_infos.html")
         plot_html_by_highway(G, f"{outdir}/english_garden_highway.html")
-        print(f"Highway type info plot done: {outdir}/english_garden_highway.html")
+        print(f"Highway type html map done: {outdir}/english_garden_highway.html")
 
 
     # match tracks with edges
@@ -242,7 +238,7 @@ def main():
 
     # m will be the folium.Map object for html visualization
     # plot to-run edges in gray
-    print("Plotting interactive html plot of tracks...")
+    print("Generating interactive html map of tracks...")
     m = ox.plot_graph_folium(G_to_run,
                              tiles="CartoDB positron",
                              fit_bounds=True,
