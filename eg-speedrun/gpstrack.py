@@ -23,6 +23,7 @@ class GPSTrack:
     date_pattern = re.compile(r'<time>([^<]+)</time>')
     track_type_pattern = re.compile(r'<type>([^<]+)</type>')
 
+    # TODO: also cache mapbox calls!!!!!!
     cache_path = None
     request_cache = None
 
@@ -106,7 +107,7 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
 
 
 
-    def match_graph(self, G, valhalla_url=None):
+    def match_graph(self, G, valhalla_url=None, mapbox_token=None):
         """match route against edges in G using valhalla APIII
 
         :param G: graph to match against
@@ -123,14 +124,18 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
         # shape = [{"lat": p[0], "lon": p[1], "type": "via"} for p in self.points]
         # shape[0]["type"] = "break"
         # shape[-1]["type"] = "break"
-        shape = [OrderedDict({"lat": p[0], "lon": p[1]}) for p in self.points]
+        if mapbox_token is not None:
+            points = GPSTrack.fit_points_mapbox(self.points, self.timestamps, mapbox_token)
+        else:
+            points = self.points
+        shape = [OrderedDict({"lat": p[0], "lon": p[1]}) for p in points]
 
         d = OrderedDict()
         d["shape"] = shape
         d["costing"] = "pedestrian"
         d["shape_match"] = "map_snap"
-        d["begin_time"] = self.timestamps[0].strftime("%Y-%m-%dT%H:%M:%S.000Z")
-        d["durations"] = [(d-d_prev).total_seconds() for (d_prev,d) in zip(self.timestamps[:-1], self.timestamps[1:])]
+        # d["begin_time"] = self.timestamps[0].strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        # d["durations"] = [(d-d_prev).total_seconds() for (d_prev,d) in zip(self.timestamps[:-1], self.timestamps[1:])]
 
         headers = {'Content-type': 'application/json'}
 
@@ -140,7 +145,7 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
 
         request_hash = my_hash(json.dumps(d))
         if request_hash not in GPSTrack.request_cache:
-            print("Sending request to Valhalla for map matchine")
+            print("Sending request to Valhalla for map matching")
             r = requests.post(url, data=json.dumps(d), headers=headers)
             if r.status_code != 200:
                 print(self.name)
@@ -191,10 +196,10 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
 
 
     @staticmethod
-    def fit_points_mapbox(points, timestamps):
+    def fit_points_mapbox(points, timestamps, mapbox_token):
         # https://mapbox-mapbox.readthedocs-hosted.com/en/latest/mapmatching.html
         from mapbox import MapMatcher
-        mm = MapMatcher()
+        mm = MapMatcher(access_token=mapbox_token)
 
 
         # API only allows 100 points
@@ -213,7 +218,9 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
             }
 
             r = mm.match(line, profile="mapbox.walking")
-            assert(r.status_code == 200)
+            if r.status_code != 200:
+                breakpoint()
+            #assert(r.status_code == 200)
 
             corrected = r.geojson()['features'][0]['geometry']['coordinates']
             history += corrected

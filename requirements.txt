@@ -1,3 +1,4 @@
 osmnx
 folium
 tqdm
+mapbox

@@ -71,6 +71,7 @@ Plot graphs in English Garden of past tracks.
     parser.add_argument("--debug", default=False, action="store_true", help="The directory where the plots are produced in.")
     parser.add_argument("--filter-date", default=0, type=int, help="Optional UNIX timestamp. Consider only gps tracks recorded later or equal of that timestamp")
     parser.add_argument("--filter-name", default=None, help="Consider only gpx files with that name.")
+    parser.add_argument("--mapbox-token", default=None, help="Optional mapbox token for better map matching.")
 
     return parser
 
@@ -225,7 +226,7 @@ def main():
     print("Matching gps points to edges...")
     matched_tracks = []
     for track in tqdm(tracks):
-        route = track.match_graph(G, args.valhalla)
+        route = track.match_graph(G, args.valhalla, args.mapbox_token)
 
         if route is None:
             print(f"Track {track.filepath} - '{track.name}' map matching failed")
