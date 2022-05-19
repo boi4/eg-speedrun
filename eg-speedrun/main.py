@@ -190,6 +190,48 @@ def plot_html_debug(G, fname):
                             popup_attribute="summary")
     m.save(fname)
 
+def plot_html_highlight_edges(G, fname):
+    G = ox.load_graphml(filepath=FNAME)
+    G = ox.utils_graph.get_undirected(G)
+    m = ox.plot_graph_folium(G,
+                            tiles="CartoDB positron",
+                            fit_bounds=True,
+                            weight=6)
+
+    polyline_names = [k for k in m._children.keys() if k.startswith("poly_line")]
+    #polylines = [m._children[k] for k in m._children.keys() if k.startswith("poly_line")]
+
+    js = f'var polylines = [' + ','.join(polyline_names) + ']'
+    js += """
+polylines.forEach(polyline => {
+    polyline.on('mouseover', function(e) {
+        var layer = e.target;
+
+        layer.setStyle({
+            color: 'red',
+        });
+    });
+    polyline.on('mouseout', function(e) {
+        var layer = e.target;
+
+        layer.setStyle({
+            color: 'blue',
+        });
+    });
+})
+"""
+
+
+    m.save(fname)
+
+    with open(fname) as f:
+        content = f.read()
+
+    content = content.replace("</script>", js + "</script>")
+
+    with open(fname, "w") as f:
+        f.write(content)
+
 
 
 def main():
@@ -216,10 +258,13 @@ def main():
     # save whole graph as interactive html for debugging
     if args.debug:
         print("Generating debug maps...")
+        plot_html_highlight_edges(G, f"{outdir}/english_garden_highlight_edges.html")
+        print(f"Plotting html highlight edges done")
         plot_html_debug(G, f"{outdir}/english_garden_infos.html")
         print(f"Edge info html map done: {outdir}/english_garden_infos.html")
         plot_html_by_highway(G, f"{outdir}/english_garden_highway.html")
         print(f"Highway type html map done: {outdir}/english_garden_highway.html")
+
 
 
     # match tracks with edges
@@ -262,6 +307,9 @@ def main():
                              weight=3,
                              color=TO_RUN_COLOR,
                              opacity=1.0)
+
+
+
 
 
 
