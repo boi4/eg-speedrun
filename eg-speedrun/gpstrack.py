@@ -113,6 +113,7 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
         :param G: graph to match against
         :returns: list of matched edges contained in G
         """
+        from shapely.geometry import Point
 
         # Query API
 
@@ -120,6 +121,10 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
             baseurl = valhalla_url
         else:
             baseurl = os.environ.get("VALHALLA_URL")
+
+        if not baseurl.startswith("http"):
+            baseurl = "https://" + baseurl
+
         url = f"{baseurl}/trace_attributes"
         # shape = [{"lat": p[0], "lon": p[1], "type": "via"} for p in self.points]
         # shape[0]["type"] = "break"
@@ -161,36 +166,49 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
         res = json.loads(text)
 
         # parse result
-        mp = [p for p in res["matched_points"] if p["type"] == "matched"]
+        matched_points = [p for p in res["matched_points"] if p["type"] == "matched"]
 
         # save for optional later use
-        self.matched_points = [(p['lat'],p['lon']) for p in mp]
-
-
-        edges = res["edges"]
-        edges_is = [p["edge_index"] for p in mp]
-
-        if any(ei >= len(edges) for ei in edges_is):
-            print("Warning: Encountered edge indizes higher than number of edges?!!")
-            edges_is = [ei for ei in edges_is if ei < len(edges)]
-
-        matched_edges = [edges[ei] for ei in edges_is]
+        self.matched_points = [(p['lat'],p['lon']) for p in matched_points]
 
         gdf_edges = ox.graph_to_gdfs(G, nodes=False)
 
+        edges = res["edges"]
         matched_graph_edges = []
         matchcount = 0
-        for me in matched_edges:
-            osmid = me['way_id']
-            mask = gdf_edges["osmid"].apply(lambda x: (type(x) == int and osmid == x)
-                                                      or (type(x) == list and osmid in x))
-            filtered = gdf_edges[mask]
-            if len(filtered) > 0:
-                matchcount += 1
-            for index,_ in filtered.iterrows():
-                matched_graph_edges.append(index)
+        for matched_point in matched_points:
+            edge_index = matched_point["edge_index"]
+            if edge_index >= len(edges):
+                print("Warning: Encountered edge index higher than number of edges?!!")
+                continue
+            matched_edge = edges[edge_index]
+            way_id = matched_edge["way_id"]
 
-        # print(f"Matched {matchcount/len(matched_edges) * 100}% of edges")
+
+
+            mask = gdf_edges["osmid"].apply(lambda x: (type(x) == int and way_id == x)
+                                                      or (type(x) == list and way_id in x))
+
+            filtered = gdf_edges[mask]
+            if len(filtered) == 0:
+                continue
+
+            # one osm "way" contains multiple edges from our graph (if it wasn't simplified)
+            # we look which one is closest to the point
+            p = Point(matched_point['lon'], matched_point['lat'])
+            # TODO: is some projection needed or does "coordinate distance" preserve order?
+            with_distance = filtered.assign(distance=filtered.apply(lambda row: row.geometry.distance(p), axis=1))
+
+            # edges in both ways will be containe
+            sorted = with_distance.sort_values("distance")
+            # u->v and v->u could be saved in graph G
+            if sorted.iloc[1]["distance"] == sorted.iloc[0]["distance"]:
+                matched_graph_edges += list(sorted[:2].index)
+            else:
+                matched_graph_edges += list(sorted[:1].index)
+            matchcount += 1
+
+        print(f"Matched {matchcount/len(matched_points) * 100}% of valhalla points with graph")
         return matched_graph_edges
 
 
@@ -203,8 +221,14 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
 
 
         # API only allows 100 points
+        print(f"Matching {len(points)} points with matchbox")
         history = []
         for i in range(0, len(points), 100):
+            if (len(points) - i) < 2:
+                # mapbox needs at least 2 coordinates
+                # in rare cases when points % 100 = 1
+                # we loose one point
+                continue
             j = min(i + 100, len(points))
             line = {
                 "type": "Feature",
@@ -217,13 +241,19 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
                 }
             }
 
-            r = mm.match(line, profile="mapbox.walking")
+            # for some reason, mapbox excludes "highway:cycling" edges when using walking profile
+            # TODO: find good gps_precision parameter
+            r = mm.match(line, profile="mapbox.cycling")
             if r.status_code != 200:
+                print(f"Bad return code from mapbox: {r.status_code}")
+                print(r.text)
                 breakpoint()
             #assert(r.status_code == 200)
 
             corrected = r.geojson()['features'][0]['geometry']['coordinates']
+            print(f"{i}:{j} ({j-i} points) -> corrected to {len(corrected)} points")
             history += corrected
+
 
             time.sleep(1)
 

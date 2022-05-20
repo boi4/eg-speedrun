@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import osmnx as ox
 from tqdm import tqdm
 
+from plot import *
 from gpstrack import GPSTrack,my_hash
 
 DEFAULT_PLOTS_DIR = "plots"
@@ -41,7 +42,7 @@ custom_filter = f'[highway~"^({"|".join(list(HIGHWAY_WHITELIST))})$"]'
 place_str = "@".join(PLACES + [custom_filter])
 
 # we use this file for caching the map data
-FNAME = f"data/{my_hash(place_str)}.graphml"
+GRAPHML_CACHE = f"data/{my_hash(place_str)}.graphml"
 
 TO_RUN_COLOR = "#d0d0d0"
 BGCOLOR = "#333333"
@@ -52,8 +53,6 @@ BGCOLOR = "#333333"
 def save_plot(fig, plotname, plotsdir, extension="pdf", **kwargs):
     fig.savefig(f"{plotsdir}/{plotname}.{extension}", format=extension,
                 bbox_inches="tight", **kwargs)
-
-
 
 
 
@@ -84,11 +83,11 @@ def setup(args):
         sys.exit(1)
 
     # fetch graph
-    if not os.path.isfile(FNAME):
-        print(f"Couldn't find cache file {FNAME} - Downloading map...")
+    if not os.path.isfile(GRAPHML_CACHE):
+        print(f"Couldn't find cache file {GRAPHML_CACHE} - Downloading map...")
         G = ox.graph_from_place(PLACES, custom_filter=custom_filter, retain_all=True,
                                 truncate_by_edge=False, simplify=False)
-        ox.save_graphml(G, filepath=FNAME)
+        ox.save_graphml(G, filepath=GRAPHML_CACHE)
 
     # setup cachefile for valhalla requests
     if args.cachefile is not None:
@@ -124,113 +123,8 @@ def load_relevant_tracks(gpxdir, filter_date, filter_name=None):
     return tracks
 
 
-def plot_html_by_highway(G, fname):
-    gdf_edges = ox.graph_to_gdfs(G, nodes=False)
-    hwytypes = list(set(gdf_edges["highway"].tolist()))
-
-    # define the colors to use for different edge types
-    colorlist = [
-            'skyblue',
-            'paleturquoise',
-            'orange',
-            'sienna',
-            'lightgreen',
-            'grey',
-            'lightskyblue'
-            'yellow',
-            'magenta',
-            'cyan',
-            'red',
-            'green',
-            'blue',
-            'black',
-        ]
-    hwy_colors = {hwytypes[i]:colorlist[i] for i in range(len(hwytypes))}
-
-    # return edge IDs that do not match passed list of hwys
-    def find_edges(G, hwys):
-        edges = []
-        for u, v, k, data in G.edges(keys=True, data='highway'):
-            check1 = isinstance(data, str) and data not in hwys
-            check2 = isinstance(data, list) and all([d not in hwys for d in data])
-            if check1 or check2:
-                edges.append((u, v, k))
-        return set(edges)
 
 
-    # first plot all edges that do not appear in hwy_colors's types
-    G_tmp = G.copy()
-    m = ox.plot_graph_folium(G_tmp, weight=5, color='white')
-
-    # then plot each edge type in hwy_colors one at a time
-    for hwy, color in hwy_colors.items():
-        G_tmp = G.copy()
-        G_tmp.remove_edges_from(find_edges(G_tmp, [hwy]))
-        if G_tmp.edges:
-            m = ox.plot_graph_folium(G_tmp,
-                                    graph_map=m,
-                                    popup_attribute='highway',
-                                    weight=5,
-                                    color=color)
-    m.save(fname)
-
-
-def plot_html_debug(G, fname):
-    G = ox.load_graphml(filepath=FNAME)
-    G = ox.utils_graph.get_undirected(G)
-    gdf_nodes, gdf_edges = ox.graph_to_gdfs(G)
-    gdf_edges['summary'] = gdf_edges.apply(lambda x:
-        f"{x['osmid']}, {x['highway']}, {x['access']}, {x['from']}, {x['to']}",
-                                           axis=1)
-    G_tmp = ox.graph_from_gdfs(gdf_nodes, gdf_edges)
-    m = ox.plot_graph_folium(G_tmp,
-                            tiles="CartoDB positron",
-                            fit_bounds=True,
-                            weight=3,
-                            popup_attribute="summary")
-    m.save(fname)
-
-def plot_html_highlight_edges(G, fname):
-    G = ox.load_graphml(filepath=FNAME)
-    G = ox.utils_graph.get_undirected(G)
-    m = ox.plot_graph_folium(G,
-                            tiles="CartoDB positron",
-                            fit_bounds=True,
-                            weight=6)
-
-    polyline_names = [k for k in m._children.keys() if k.startswith("poly_line")]
-    #polylines = [m._children[k] for k in m._children.keys() if k.startswith("poly_line")]
-
-    js = f'var polylines = [' + ','.join(polyline_names) + ']'
-    js += """
-polylines.forEach(polyline => {
-    polyline.on('mouseover', function(e) {
-        var layer = e.target;
-
-        layer.setStyle({
-            color: 'red',
-        });
-    });
-    polyline.on('mouseout', function(e) {
-        var layer = e.target;
-
-        layer.setStyle({
-            color: 'blue',
-        });
-    });
-})
-"""
-
-
-    m.save(fname)
-
-    with open(fname) as f:
-        content = f.read()
-
-    content = content.replace("</script>", js + "</script>")
-
-    with open(fname, "w") as f:
-        f.write(content)
 
 
 
@@ -241,7 +135,8 @@ def main():
 
     setup(args)
 
-    outdir = f"{args.outdir}/{int(time.time())}"
+    #outdir = f"{args.outdir}/{int(time.time())}"
+    outdir = f"{args.outdir}"
     print(f"Using {outdir} as the output directory")
     os.makedirs(outdir, exist_ok=True)
 
@@ -253,14 +148,12 @@ def main():
 
 
     # load our graph
-    G = ox.load_graphml(filepath=FNAME)
+    G = ox.load_graphml(filepath=GRAPHML_CACHE)
 
     # save whole graph as interactive html for debugging
     if args.debug:
         print("Generating debug maps...")
-        plot_html_highlight_edges(G, f"{outdir}/english_garden_highlight_edges.html")
-        print(f"Plotting html highlight edges done")
-        plot_html_debug(G, f"{outdir}/english_garden_infos.html")
+        plot_html_debug(G, f"{outdir}/english_garden_infos.html", GRAPHML_CACHE)
         print(f"Edge info html map done: {outdir}/english_garden_infos.html")
         plot_html_by_highway(G, f"{outdir}/english_garden_highway.html")
         print(f"Highway type html map done: {outdir}/english_garden_highway.html")
@@ -284,6 +177,10 @@ def main():
 
 
 
+    # Make G undirected, so we don't count everything twice
+    G = ox.get_undirected(G)
+
+    # this works because we saved both u->v and v->u in matched tracks
     runned_edges = set(a for t in matched_tracks for a in t[1])
     to_run_edges = G.edges(keys=True) - runned_edges
 
@@ -345,7 +242,7 @@ def main():
                                  opacity=1.0)
 
     # save folium html map
-    m.save(f"{outdir}/map.html")
+    map_save_highlight_edges(m, f"{outdir}/map.html")
     print("Plotting done.")
 
     # folium.plugins.Fullscreen(
@@ -373,7 +270,7 @@ def main():
             for c in cs:
                 c.add_to(m)
 
-        m.save(f"{outdir}/map-debug.html")
+        map_save_highlight_edges(m, f"{outdir}/map-debug.html")
         print(f"Debug plotting done: {outdir}/map-debug.html")
 
 
