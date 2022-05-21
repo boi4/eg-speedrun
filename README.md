@@ -59,3 +59,4 @@ For this project, it seems more important to keep the false-positive-rate low (n
 1. Use valhalla to get way_id of osm way
 2. Look in osmnx graph which edges are part of the way
 3. Choose edge with smallest distance to the point
+4. Post-processing: Close short gaps between long route segments (some edges are skipped because there was no gps point on it)

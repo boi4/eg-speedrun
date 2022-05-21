@@ -65,12 +65,12 @@ Plot graphs in English Garden of past tracks.
 
     parser.add_argument("--valhalla", default=None, required=False, help="URL to basis of valhalla api endpoint, can also be defined by setting VALHALLA_URL env. var")
     parser.add_argument("--gpxdir", "-d", required=True, help="The directory containing the gpx files for your runs.")
-    parser.add_argument("--outdir", "-o", default=DEFAULT_PLOTS_DIR, help="The directory where the plots are produced in.")
-    parser.add_argument("--cachefile", "-c", default=None, help="Path to a file where map matching results are cached. File will be created if it does not exist yet")
-    parser.add_argument("--debug", default=False, action="store_true", help="The directory where the plots are produced in.")
     parser.add_argument("--filter-date", default=0, type=int, help="Optional UNIX timestamp. Consider only gps tracks recorded later or equal of that timestamp")
     parser.add_argument("--filter-name", default=None, help="Consider only gpx files with that name.")
-    parser.add_argument("--mapbox-token", default=None, help="Optional mapbox token for better map matching.")
+    parser.add_argument("--outdir", "-o", default=DEFAULT_PLOTS_DIR, help="The directory where the plots are produced in.")
+    parser.add_argument("--cachefile", "-c", default=None, help="Path to a file where map matching results are cached. File will be created if it does not exist yet")
+    parser.add_argument("--no-fill-gaps", default=False, action="store_true", help="Whether to disable automatic filling of gaps during map matching")
+    parser.add_argument("--debug", default=False, action="store_true", help="The directory where the plots are produced in.")
 
     return parser
 
@@ -135,8 +135,8 @@ def main():
 
     setup(args)
 
-    #outdir = f"{args.outdir}/{int(time.time())}"
-    outdir = f"{args.outdir}"
+    outdir = f"{args.outdir}/{int(time.time())}"
+    #outdir = f"{args.outdir}"
     print(f"Using {outdir} as the output directory")
     os.makedirs(outdir, exist_ok=True)
 
@@ -164,23 +164,25 @@ def main():
     print("Matching gps points to edges...")
     matched_tracks = []
     for track in tqdm(tracks):
-        route = track.match_graph(G, args.valhalla, args.mapbox_token)
+        route,fillers = track.match_graph(G, args.valhalla)
+
 
         if route is None:
             print(f"Track {track.filepath} - '{track.name}' map matching failed")
         elif len(route) == 0:
             print(f"Track {track.filepath} - '{track.name}' not in English Garden, ignoring")
         else:
+            if not args.no_fill_gaps:
+                # Note that we loose the ordering of the edges here by just appending the fillers at the end
+                route += fillers
             matched_tracks.append((track, route))
     print("Matching done.")
 
 
 
 
-    # Make G undirected, so we don't count everything twice
-    G = ox.get_undirected(G)
-
     # this works because we saved both u->v and v->u in matched tracks
+    # G.edges saves u->v and v->u only once
     runned_edges = set(a for t in matched_tracks for a in t[1])
     to_run_edges = G.edges(keys=True) - runned_edges
 
@@ -231,6 +233,7 @@ def main():
         # add route info for interactive html popup
         gdf_nodes, gdf_edges = ox.graph_to_gdfs(G_track)
         gdf_edges['route_info'] = f"{track.date.strftime('%Y-%m-%d')}"
+        gdf_edges['match_count'] = [route.count(key) for key in gdf_edges.index]
         G_track = ox.graph_from_gdfs(gdf_nodes, gdf_edges)
 
         # add graph to folium map
@@ -305,13 +308,13 @@ def main():
     #  - how much of total roads were "uncovered" (percentage) TODO
 
 
-    edges_total = ox.graph_to_gdfs(G, nodes=False)
-    edges_runned = ox.graph_to_gdfs(G_runned, nodes=False)
-    edges_to_run = ox.graph_to_gdfs(G_to_run, nodes=False)
+    edges_total = G.edges(keys=True, data=True)
+    edges_runned = G_runned.edges(keys=True, data=True)
+    edges_to_run = G_to_run.edges(keys=True, data=True)
 
-    total_length_meters = edges_total["length"].sum()
-    runned_length_meters = edges_runned["length"].sum()
-    to_run_length_meters = edges_to_run["length"].sum()
+    total_length_meters = sum([e[3]['length'] for e in edges_total])
+    runned_length_meters = sum([e[3]['length'] for e in edges_runned])
+    to_run_length_meters = sum([e[3]['length'] for e in edges_to_run])
 
     runned_percentage = 100 * runned_length_meters / total_length_meters
     to_run_percentage = 100 * to_run_length_meters / total_length_meters

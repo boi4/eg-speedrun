@@ -8,6 +8,7 @@ from datetime import datetime
 import osmnx as ox
 import requests
 from shapely.geometry import Point
+from networkx.exception import NodeNotFound
 
 
 def my_hash(text):
@@ -107,7 +108,7 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
 
 
 
-    def match_graph(self, G, valhalla_url=None, mapbox_token=None):
+    def match_graph(self, G, valhalla_url=None):
         """match route against edges in G using valhalla APIII
 
         :param G: graph to match against
@@ -129,11 +130,7 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
         # shape = [{"lat": p[0], "lon": p[1], "type": "via"} for p in self.points]
         # shape[0]["type"] = "break"
         # shape[-1]["type"] = "break"
-        if mapbox_token is not None:
-            points = GPSTrack.fit_points_mapbox(self.points, self.timestamps, mapbox_token)
-        else:
-            points = self.points
-        shape = [OrderedDict({"lat": p[0], "lon": p[1]}) for p in points]
+        shape = [OrderedDict({"lat": p[0], "lon": p[1]}) for p in self.points]
 
         d = OrderedDict()
         d["shape"] = shape
@@ -209,8 +206,102 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
             matchcount += 1
 
         print(f"Matched {matchcount/len(matched_points) * 100}% of valhalla points with graph")
-        return matched_graph_edges
 
+
+        # post processing
+        filler_edges = GPSTrack.fill_gaps(G, matched_graph_edges)
+
+        return matched_graph_edges,filler_edges
+
+
+    @staticmethod
+    def fill_gaps(G, matched_graph_edges, filler_thresh_length=30, filler_thresh_num_nodes=6):
+        """Fill gaps in route that seem plausible
+
+        :param G: osmnx Graph
+        :param matched_graph_edges: list of edges of route that was matched
+        :param filler_thresh_length: minimum length in meters where we don't fill the gap
+        :param filler_thresh_num_nodes: minimum number of nodes in filling path where we don't fill the gap
+        :returns: list of edges that were part of the gap
+
+        """
+        matched_graph_edges_uni = [] # save only one instance for double edges
+        for (u,v,_) in matched_graph_edges:
+            if u > v:
+                u,v = v,u
+            if len(matched_graph_edges_uni) == 0 or matched_graph_edges_uni[-1] != (u,v):
+                matched_graph_edges_uni.append((u,v))
+
+        # helpers
+        edge_dict = {}
+        for edge in G.edges(data=True):
+            edge_dict[(edge[0],edge[1])] = edge[2]
+
+        def path_length(path):
+            return sum(edge_dict[(u,v)]['length'] for (u,v) in zip(path[:-1],path[1:]))
+
+        # run post processing
+        filler_edges = []
+        filler_lengths = []
+        mgeu = matched_graph_edges_uni
+        next_node = -1
+        for (e_cur,e_next) in zip(mgeu[:-1],mgeu[1:]):
+            u_cur,v_cur = e_cur
+            u_next,v_next = e_next
+
+            if u_next in [u_cur, v_cur]:
+                # edges are connected, continue
+                next_node = v_next
+                continue
+            if v_next in [u_cur, v_cur]:
+                # edges are connected, continue
+                next_node = u_next
+                continue
+
+            # edges are not connected
+            try:
+                u_path,v_path = ox.shortest_path(G, [next_node, next_node], [u_next, v_next])
+            except NodeNotFound:
+                next_node = -1
+                continue
+            if u_path is None or v_path is None:
+                next_node = -1
+                continue
+
+            u_length,v_length = path_length(u_path),path_length(v_path)
+            if u_length < v_length:
+                path = u_path
+                length = u_length
+                pot_next_node = v_next
+            else:
+                path = v_path
+                length = v_length
+                pot_next_node = u_next
+
+
+            # threshold
+            if length < filler_thresh_length and len(path) < filler_thresh_num_nodes:
+                for (u,v) in zip(path[:-1], path[1:]):
+                    filler_edges.append((u,v))
+                    filler_lengths.append(length)
+                next_node = pot_next_node
+            else:
+                print(f"Gap-Filling: Discarding too long filler path: {len(path)} nodes, {length:.2f}m")
+                next_node = -1
+
+
+        print(f"Gap-Filling: Filled in {len(filler_edges)} edges with a total length of {sum(filler_lengths):.2f}m")
+
+        # finally, add filler edges to matched edges
+        filler_graph_edges = []
+        gdf_edges = ox.graph_to_gdfs(G, nodes=False)
+        for (u,v) in filler_edges:
+            if (u,v,0) in gdf_edges.index:
+                filler_graph_edges.append((u,v,0))
+            if (v,u,0) in gdf_edges.index:
+                filler_graph_edges.append((v,u,0))
+
+        return filler_graph_edges
 
 
     @staticmethod
