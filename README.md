@@ -55,7 +55,6 @@ For this project, it seems more important to keep the false-positive-rate low (n
 
 ### How it's done here
 
-0. (Optionally) use mapbox map matching API to set gps points onto closest road
 1. Use valhalla to get way_id of osm way
 2. Look in osmnx graph which edges are part of the way
 3. Choose edge with smallest distance to the point
