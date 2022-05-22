@@ -180,17 +180,21 @@ def main():
     print("Matching done.")
 
 
-    # TODO: make G unidirected
-    # TODO: reenable mapbox
-
-
-
-    # TODO: document what is going on
     runned_edges = set(a for t in matched_tracks for a in t[1])
     to_run_edges = G.edges(keys=True) - runned_edges
 
     # make undirected
-    G = ox.get_undirected(G)
+    G_uni = G.copy()
+    G_edges = G.edges(keys=True)
+    to_remove = []
+    for (u,v,k) in G_edges:
+        if v < u and (v,u,k) in G_edges:
+            to_remove.append((u,v,k))
+    print(len(to_remove))
+    G_uni.remove_edges_from(to_remove)
+
+
+    G = G_uni
 
     # edges will keep track of the color for each edge for static plot
     edges_color = ox.graph_to_gdfs(G, nodes=False)
@@ -203,6 +207,7 @@ def main():
     G_runned = G.copy()
     G_runned.remove_edges_from(to_run_edges)
 
+
     # m will be the folium.Map object for html visualization
     # plot to-run edges in gray
     print("Generating interactive html map of tracks...")
@@ -214,11 +219,6 @@ def main():
                              opacity=1.0)
 
 
-
-
-
-
-
     colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     for (i,t) in enumerate(tqdm(matched_tracks)):
@@ -228,7 +228,7 @@ def main():
         next_color = colors[i % len(colors)]
 
         # get graph with only the runned edges
-        to_remove = set(e for e in G.edges if e not in route)
+        to_remove = set(e for e in G.edges(keys=True) if e not in route)
         G_track = G.copy()
         G_track.remove_edges_from(to_remove)
 

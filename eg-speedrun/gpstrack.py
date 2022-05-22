@@ -175,7 +175,7 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
         gdf_edges = ox.graph_to_gdfs(G, nodes=False)
 
         edges = res["edges"]
-        matched_graph_edges = []
+        matched_edges = []
         matchcount = 0
         for matched_point in matched_points:
             edge_index = matched_point["edge_index"]
@@ -204,16 +204,25 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
             sorted = with_distance.sort_values("distance")
             # u->v and v->u could be saved in graph G
             if sorted.iloc[1]["distance"] == sorted.iloc[0]["distance"]:
-                matched_graph_edges += list(sorted[:2].index)
+                matched_edges += list(sorted[:2].index)
             else:
-                matched_graph_edges += list(sorted[:1].index)
+                matched_edges += list(sorted[:1].index)
             matchcount += 1
 
         print(f"Matched {matchcount/len(matched_points) * 100}% of valhalla points with graph")
 
 
+        matched_graph_edges = []
+        for (u,v,k) in matched_edges:
+            if (u,v,k) in gdf_edges.index:
+                matched_graph_edges.append((u,v,k))
+            if (v,u,k) in gdf_edges.index:
+                matched_graph_edges.append((v,u,k))
+
         # post processing
         filler_edges = GPSTrack.fill_gaps(G, matched_graph_edges)
+
+
 
         return matched_graph_edges,filler_edges
 
