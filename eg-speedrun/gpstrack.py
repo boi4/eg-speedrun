@@ -130,7 +130,11 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
         # shape = [{"lat": p[0], "lon": p[1], "type": "via"} for p in self.points]
         # shape[0]["type"] = "break"
         # shape[-1]["type"] = "break"
-        shape = [OrderedDict({"lat": p[0], "lon": p[1]}) for p in self.points]
+        if os.getenv("MAPBOX_ACCESS_TOKEN") != None:
+            points = GPSTrack.fit_points_mapbox(self.points, self.timestamps)
+        else:
+            points = self.points
+        shape = [OrderedDict({"lat": p[0], "lon": p[1]}) for p in points]
 
         d = OrderedDict()
         d["shape"] = shape
@@ -305,10 +309,10 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
 
 
     @staticmethod
-    def fit_points_mapbox(points, timestamps, mapbox_token):
+    def fit_points_mapbox(points, timestamps):
         # https://mapbox-mapbox.readthedocs-hosted.com/en/latest/mapmatching.html
         from mapbox import MapMatcher
-        mm = MapMatcher(access_token=mapbox_token)
+        mm = MapMatcher()
 
 
         # API only allows 100 points

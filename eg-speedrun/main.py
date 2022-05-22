@@ -19,6 +19,7 @@ from gpstrack import GPSTrack,my_hash
 
 DEFAULT_PLOTS_DIR = "plots"
 PLACES = ["Englischer Garten", "Isarinsel Oberföhring", "Wehranlage Oberföhring"]
+# TODO: what about Maximiliansanlagen/Heinrich-Mann-Allee/Thomas-Mann-Allee
 
 # don't put regex stuff in here
 
@@ -70,7 +71,7 @@ Plot graphs in English Garden of past tracks.
     parser.add_argument("--outdir", "-o", default=DEFAULT_PLOTS_DIR, help="The directory where the plots are produced in.")
     parser.add_argument("--cachefile", "-c", default=None, help="Path to a file where map matching results are cached. File will be created if it does not exist yet")
     parser.add_argument("--no-fill-gaps", default=False, action="store_true", help="Whether to disable automatic filling of gaps during map matching")
-    parser.add_argument("--debug", default=False, action="store_true", help="The directory where the plots are produced in.")
+    parser.add_argument("--debug", default=False, action="store_true", help="Generate some useful debug plots")
 
     return parser
 
@@ -179,12 +180,17 @@ def main():
     print("Matching done.")
 
 
+    # TODO: make G unidirected
+    # TODO: reenable mapbox
 
 
-    # this works because we saved both u->v and v->u in matched tracks
-    # G.edges saves u->v and v->u only once
+
+    # TODO: document what is going on
     runned_edges = set(a for t in matched_tracks for a in t[1])
     to_run_edges = G.edges(keys=True) - runned_edges
+
+    # make undirected
+    G = ox.get_undirected(G)
 
     # edges will keep track of the color for each edge for static plot
     edges_color = ox.graph_to_gdfs(G, nodes=False)
@@ -234,10 +240,9 @@ def main():
         gdf_nodes, gdf_edges = ox.graph_to_gdfs(G_track)
         gdf_edges['route_info'] = f"{track.date.strftime('%Y-%m-%d')}"
         gdf_edges['match_count'] = [route.count(key) for key in gdf_edges.index]
-        G_track = ox.graph_from_gdfs(gdf_nodes, gdf_edges)
 
         # add graph to folium map
-        m = ox.plot_graph_folium(G_track,
+        m = ox.plot_graph_folium(ox.graph_from_gdfs(gdf_nodes, gdf_edges),
                                  graph_map=m,
                                  weight=3,
                                  color=next_color,
