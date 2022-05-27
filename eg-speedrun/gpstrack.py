@@ -134,12 +134,17 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
             points = GPSTrack.fit_points_mapbox(self.points, self.timestamps)
         else:
             points = self.points
+        # shape = [OrderedDict({"lat": p[0], "lon": p[1],
+        #                       "time": (self.timestamps[i] - self.timestamps[0]).total_seconds()})
+        #          for (i,p) in enumerate(points)]
         shape = [OrderedDict({"lat": p[0], "lon": p[1]}) for p in points]
 
         d = OrderedDict()
         d["shape"] = shape
+        # auto matches almost nothing
         d["costing"] = "pedestrian"
         d["shape_match"] = "map_snap"
+        # d["costing_options"] = {"pedestrian": {"shortest": True}}
         # d["begin_time"] = self.timestamps[0].strftime("%Y-%m-%dT%H:%M:%S.000Z")
         # d["durations"] = [(d-d_prev).total_seconds() for (d_prev,d) in zip(self.timestamps[:-1], self.timestamps[1:])]
 
@@ -315,6 +320,8 @@ GPSTrack(name={self.name}, date={self.date}, type={self.track_type}, points={len
                 filler_graph_edges.append((v,u,0))
 
         return filler_graph_edges
+
+
 
 
     @staticmethod

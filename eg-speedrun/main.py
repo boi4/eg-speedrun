@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 from plot import *
 from gpstrack import GPSTrack,my_hash
+from bad_edges import BAD_EDGE_LIST
 
 DEFAULT_PLOTS_DIR = "plots"
 PLACES = ["Englischer Garten", "Isarinsel Oberföhring", "Wehranlage Oberföhring"]
@@ -147,9 +148,12 @@ def main():
                                   datetime.fromtimestamp(args.filter_date),
                                   args.filter_name)
 
-
     # load our graph
     G = ox.load_graphml(filepath=GRAPHML_CACHE)
+
+    # remove bad edges
+    G.remove_edges_from(set((u,v,0) for (u,v) in BAD_EDGE_LIST)
+                        | set((v,u,0) for (u,v) in BAD_EDGE_LIST))
 
     # save whole graph as interactive html for debugging
     if args.debug:
