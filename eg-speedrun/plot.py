@@ -17,6 +17,7 @@ def map_save_highlight_edges(m, fname):
 polylines.forEach(polyline => {
     polyline.on('mouseover', function(e) {
         var layer = e.target;
+        console.log(layer._popup._content.outerText)
 
         origcolor = layer['options']['fillColor'];
         layer['origcolor'] = origcolor;

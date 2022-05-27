@@ -73,6 +73,7 @@ Plot graphs in English Garden of past tracks.
     parser.add_argument("--cachefile", "-c", default=None, help="Path to a file where map matching results are cached. File will be created if it does not exist yet")
     parser.add_argument("--no-fill-gaps", default=False, action="store_true", help="Whether to disable automatic filling of gaps during map matching")
     parser.add_argument("--debug", default=False, action="store_true", help="Generate some useful debug plots")
+    parser.add_argument("--fix", required=False, help="Path to a fix.json file (dict of filenames (without parent directories) to list of edges)")
 
     return parser
 
@@ -182,6 +183,26 @@ def main():
                 route += fillers
             matched_tracks.append((track, route))
     print("Matching done.")
+
+
+
+    # apply fixes
+    if args.fix:
+        with open(args.fix) as f:
+            fixes = json.load(f)
+        fixed_tracks = []
+        for (track,route) in matched_tracks:
+            fname = track.filepath.split("/")[-1]
+            if fname in fixes:
+                edges_to_add = fixes[fname]
+                to_add = list(set((u,v,0) for (u,v) in edges_to_add)
+                        | set((v,u,0) for (u,v) in edges_to_add))
+                route += to_add
+            fixed_tracks.append((track,route))
+
+        matched_tracks = fixed_tracks
+
+
 
 
     runned_edges = set(a for t in matched_tracks for a in t[1])
