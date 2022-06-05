@@ -123,6 +123,9 @@ def load_relevant_tracks(gpxdir, filter_date, filter_name=None):
 
         tracks.append(track)
 
+    # sort by date
+    tracks.sort(key=lambda x: x.date)
+
     return tracks
 
 
