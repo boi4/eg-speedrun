@@ -197,9 +197,13 @@ def main():
         for (track,route) in matched_tracks:
             fname = track.filepath.split("/")[-1]
             if fname in fixes:
-                edges_to_add = fixes[fname]
+                edges_to_add = [a for f in fixes[fname] for a in f.get("add", [])]
+                edges_to_remove = [a for f in fixes[fname] for a in f.get("remove", [])]
                 to_add = list(set((u,v,0) for (u,v) in edges_to_add)
                         | set((v,u,0) for (u,v) in edges_to_add))
+                to_remove = list(set((u,v,0) for (u,v) in edges_to_remove)
+                        | set((v,u,0) for (u,v) in edges_to_remove))
+                route = [r for r in route if r not in to_remove]
                 route += to_add
             fixed_tracks.append((track,route))
 
