@@ -296,6 +296,43 @@ def main():
 
     if args.debug:
         print("Plotting debug visualization with gps points included")
+
+        m = ox.plot_graph_folium(G_to_run,
+                                tiles="CartoDB positron",
+                                fit_bounds=True,
+                                weight=3,
+                                color=TO_RUN_COLOR,
+                                opacity=1.0)
+
+
+        colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
+        for (i,t) in enumerate(tqdm(matched_tracks)):
+            track,route = t
+
+            # determine next color
+            next_color = colors[i % len(colors)]
+
+            # get graph with only the runned edges
+            to_remove = set(e for e in G.edges(keys=True) if e not in route)
+            G_track = G.copy()
+            G_track.remove_edges_from(to_remove)
+
+            # color edges in our color lookup
+            edges_ran = G_track.edges(keys=True)
+            edges_color.loc[edges_color.index.isin(edges_ran),"color"] = next_color
+
+            # add route info for interactive html popup
+            gdf_nodes, gdf_edges = ox.graph_to_gdfs(G_track)
+            gdf_edges['nodes'] = gdf_edges.apply(lambda x: f"[{x.name[0]}, {x.name[1]}]", axis=1)
+
+            # add graph to folium map
+            m = ox.plot_graph_folium(ox.graph_from_gdfs(gdf_nodes, gdf_edges),
+                                    graph_map=m,
+                                    weight=3,
+                                    color=next_color,
+                                    popup_attribute="nodes",
+                                    opacity=1.0)
+
         # visualize gps points and matched points
         for (i,t) in enumerate(matched_tracks):
             track,route = t
