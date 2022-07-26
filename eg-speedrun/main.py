@@ -47,7 +47,8 @@ place_str = "@".join(PLACES + [custom_filter])
 GRAPHML_CACHE = f"data/{my_hash(place_str)}.graphml"
 
 TO_RUN_COLOR = "#d0d0d0"
-BGCOLOR = "#333333"
+#BGCOLOR = "#33333300"
+BGCOLOR = "#00000000"
 
 
 
