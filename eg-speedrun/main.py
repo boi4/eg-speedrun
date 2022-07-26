@@ -297,11 +297,14 @@ def main():
     if args.debug:
         print("Plotting debug visualization with gps points included")
 
-        m = ox.plot_graph_folium(G_to_run,
+        gdf_nodes, gdf_edges = ox.graph_to_gdfs(G_to_run)
+        gdf_edges['nodes'] = gdf_edges.apply(lambda x: f"[{x.name[0]}, {x.name[1]}]", axis=1)
+        m = ox.plot_graph_folium(ox.graph_from_gdfs(gdf_nodes, gdf_edges),
                                 tiles="CartoDB positron",
                                 fit_bounds=True,
                                 weight=3,
                                 color=TO_RUN_COLOR,
+                                popup_attribute="nodes",
                                 opacity=1.0)
 
 
@@ -417,5 +420,6 @@ def main():
     return locals()
 
 if __name__ == "__main__":
-   locvar = main()
-   globals().update(locvar)
+    main()
+   #locvar = main()
+   #globals().update(locvar)
