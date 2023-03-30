@@ -38,5 +38,8 @@ BAD_EDGE_LIST = [
     ## path going through river/pond
     (9152082849, 443464810),
     (9152082849, 443464811),
-    (9152082848, 443464811)
+    (9152082848, 443464811),
+
+    # weird edge in the middle of Baumschule south of isarwehr
+    (1969642301, 1969642302)
 ]
