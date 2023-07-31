@@ -6,7 +6,7 @@
 The goal of this project to stay fit and gamify the (sometimes boring) running activities by adding a small challenge to it.
 The idea is to run all available paths in the [English Garden](https://en.wikipedia.org/wiki/Englischer_Garten), a pretty big park in the heart of Munich.
 
-The scripts in this repository will analyze your gpx files and match it with data from [OpenStreetMap](https://www.openstreetmap.org) to visualize your runned paths and give you some stats about your progress.
+The scripts in this repository will analyze your gpx files and match it with data from [OpenStreetMap](https://www.openstreetmap.org) to visualize your ran paths and give you some stats about your progress.
 
 This project can be quite easily adapted for other parks/areas. Note however, that some aspects like the highway type blacklist were especially fine-tuned on the English Garden (to avoid running on the Autobahn).
 
@@ -16,7 +16,7 @@ This project can be quite easily adapted for other parks/areas. Note however, th
 Each gpx file recorded by your GPS device (phone, smart watch, ...) will contain a list of gps coordinates with timestamps that were recorded during your run.
 At the same time, using OpenSteetMap and [osmnx](https://github.com/gboeing/osmnx), we derived a graph data structure (nodes and edges) with coordinate information.
 
-To track your progress, we now need to derive the runned path (a list of edges) from the list of points (e.g. by matching each measured point to an edge in the graph).
+To track your progress, we now need to derive the ran path (a list of edges) from the list of points (e.g. by matching each measured point to an edge in the graph).
 
 
 ### Problems
@@ -37,11 +37,11 @@ There is a lot of research into map matching and there exist sophisticated algor
 As this is a classification problem (is a specific edge in the path that was run), we are interested to keep both the *false-positive-rate* and the *false-negative-rate* low.
 And as usually, because of the inaccuracies in the measurements, these two rates usually trade off against each other.
 
-For this project, it seems more important to keep the false-positive-rate low (not classify non-runned edges as runned edges) for the following reasons:
+For this project, it seems more important to keep the false-positive-rate low (not classify non-ran edges as ran edges) for the following reasons:
 
-* Classifying non-runned edges as "runned" is cheating the 100% challenge
-* As they usually represent gaps in the runned route, missing edges can be fixed manually easier than edges that were wrongly classified as "runned"
-* Missing edges can be strategically re-runned (e.g. do a short pause at the edge so that there are more gps points, ...)
+* Classifying non-ran edges as "ran" is cheating the 100% challenge
+* As they usually represent gaps in the ran route, missing edges can be fixed manually easier than edges that were wrongly classified as "ran"
+* Missing edges can be strategically re-ran (e.g. do a short pause at the edge so that there are more gps points, ...)
 
 
 
